@@ -46,6 +46,10 @@ to previous url as follows:
 
 `/rates/historical/range?start_at=2018-01-01&end_at=2018-09-01&symbols=USD&base=CAD` - `GET`
 
+## Validation
+
+I added currency validation for both `symbols` and `base` using `java.util.Currency`.
+
 ## Unit Testing
 
 I did not really have much time to dive deep into testing.
