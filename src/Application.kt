@@ -1,0 +1,144 @@
+package com.example
+
+import io.ktor.application.*
+import io.ktor.routing.*
+import io.ktor.html.*
+import kotlinx.html.*
+import validation.CurrencyCodeValidator
+import kotlin.system.exitProcess
+
+const val API_ENDPOINT = "/rates"
+const val LATEST_ENDPOINT = "$API_ENDPOINT/latest"
+const val HISTORICAL_DATE_ENDPOINT = "$API_ENDPOINT/historical/{date}"
+const val HISTORICAL_RANGE_ENDPOINT = "$API_ENDPOINT/historical/range"
+
+
+fun Application.main() {
+    routing {
+        /**
+         * Endpoint for getting latest exchange rates
+         */
+        get(LATEST_ENDPOINT) {
+            LOG.debug("HTTP_GET request for getting latest rates")
+
+            // Validate currency codes
+            if(!validateSymbols(call) || !validateBase(call)) return@get
+
+            // Assign query parameters and get them ready to be passed in to client url
+            val symbols =  if (call.parameters["symbols"] != null) "?symbols="  + call.parameters["symbols"] else ""
+            val base = if (call.parameters["base"] != null) "&base="  + call.parameters["base"] else ""
+
+            // Response from the client using the above parameters
+            val res = getLatest(symbols, base)
+
+            // Return as an html
+            call.respondHtml {
+                body {
+                    h1 { + "Latest Rates" }
+                    + "Rates: "
+                    + res.rates.toString()
+                    hr {  }
+                    + "Base: "
+                    + res.base
+                    hr {  }
+                    + "Date: "
+                    + res.date!!
+                }
+            }
+        }
+
+        /**
+         * Endpoint for getting exchange rate on a specific date
+         */
+        get(HISTORICAL_DATE_ENDPOINT) {
+            LOG.debug("HTTP_GET request for getting historical rates with given date")
+
+            // Validate currency codes
+            if(!validateBase(call)) return@get
+
+            // Assign query parameters and get them ready to be passed in to client url
+            val date = call.parameters["date"]!!
+            val base = if (call.parameters["base"] != null) "&base="  + call.parameters["base"] else ""
+
+            // Response from the client using the above parameters
+            val res = getHistoricalDate(date, base)
+
+            // Return as an html
+            call.respondHtml {
+                body {
+                    h1 { + "Historical Date Rates"}
+                    + "Rates: "
+                    + res.rates.toString()
+                    hr {  }
+                    + "Base: "
+                    + res.base
+                    hr {  }
+                    + "Date: "
+                    + res.date!!
+                }
+            }
+        }
+
+        /**
+         * Endpoint for getting exchange rate between 2 dates
+         */
+        get(HISTORICAL_RANGE_ENDPOINT) {
+            LOG.debug("HTTP_GET request for getting historical rates between two dates")
+
+            // Validate currency codes
+            if(!validateSymbols(call)) return@get
+
+            // Assign query parameters and get them ready to be passed in to client url
+            val startDate = call.parameters["start_at"] ?: throw IllegalArgumentException("Parameter from_date not found")
+            val endDate = call.parameters["end_at"] ?: throw IllegalArgumentException("Parameter end_date not found")
+            val symbols =  if (call.parameters["symbols"] != null) "&symbols="  + call.parameters["symbols"] else ""
+
+            // Response from the client using the above parameters
+            val res = getHistoricalRange(startDate, endDate, symbols)
+
+            // Return as an html
+            call.respondHtml {
+                body {
+                    h1 { + "Historical Range Rates"}
+                    + "Rates: "
+                    + res.rates.toString()
+                    hr {  }
+                    + "Base: "
+                    + res.base
+                    hr {  }
+                    + "Start At: "
+                    + res.start_at!!
+                    hr {  }
+                    + "End At: "
+                    + res.end_at!!
+                }
+            }
+        }
+    }
+}
+
+suspend fun validateSymbols(call: ApplicationCall): Boolean {
+    if (call.parameters["symbols"] != null) {
+        val symbolsArray = call.parameters["symbols"]!!.split(",").toTypedArray()
+
+        symbolsArray.forEach {
+            val currencyValidator = CurrencyCodeValidator.validateCurrency(it)
+            if (!currencyValidator) {
+                call.respondHtml { body { h1 { +"Invalid symbol currency code" } } }
+                return false
+            }
+        }
+    }
+    return true
+}
+
+suspend fun validateBase(call: ApplicationCall): Boolean {
+    if (call.parameters["base"] != null) {
+        val currencyValidator = CurrencyCodeValidator.validateCurrency(call.parameters["base"])
+        if (!currencyValidator) {
+            call.respondHtml { body { h1 { + "Invalid base currency code " } } }
+            return false
+        }
+    }
+    return true
+}
