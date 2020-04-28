@@ -21,8 +21,19 @@ fun Application.main() {
         get(LATEST_ENDPOINT) {
             LOG.debug("HTTP_GET request for getting latest rates")
 
-            // Validate currency codes
-            if(!validateSymbols(call) || !validateBase(call)) return@get
+            if(call.parameters["symbols"] != null) {
+                if(!validateSymbols(call)) {
+                    call.respondHtml { body { h1 { +"Invalid symbol currency code" } } }
+                    return@get
+                }
+            }
+
+            if(call.parameters["base"] != null) {
+                if(!validateBase(call)) {
+                    call.respondHtml { body { h1 { +"Invalid base currency code" } } }
+                    return@get
+                }
+            }
 
             // Assign query parameters and get them ready to be passed in to client url
             val symbols =  if (call.parameters["symbols"] != null) "?symbols="  + call.parameters["symbols"] else ""
@@ -53,8 +64,12 @@ fun Application.main() {
         get(HISTORICAL_DATE_ENDPOINT) {
             LOG.debug("HTTP_GET request for getting historical rates with given date")
 
-            // Validate currency codes
-            if(!validateBase(call)) return@get
+            if(call.parameters["base"] != null) {
+                if(!validateBase(call)) {
+                    call.respondHtml { body { h1 { +"Invalid base currency code" } } }
+                    return@get
+                }
+            }
 
             // Assign query parameters and get them ready to be passed in to client url
             val date = call.parameters["date"]!!
@@ -85,8 +100,12 @@ fun Application.main() {
         get(HISTORICAL_RANGE_ENDPOINT) {
             LOG.debug("HTTP_GET request for getting historical rates between two dates")
 
-            // Validate currency codes
-            if(!validateSymbols(call)) return@get
+            if(call.parameters["symbols"] != null) {
+                if(!validateSymbols(call)) {
+                    call.respondHtml { body { h1 { +"Invalid symbols currency code" } } }
+                    return@get
+                }
+            }
 
             // Assign query parameters and get them ready to be passed in to client url
             val startDate = call.parameters["start_at"] ?: throw IllegalArgumentException("Parameter from_date not found")
@@ -117,28 +136,17 @@ fun Application.main() {
     }
 }
 
-suspend fun validateSymbols(call: ApplicationCall): Boolean {
-    if (call.parameters["symbols"] != null) {
-        val symbolsArray = call.parameters["symbols"]!!.split(",").toTypedArray()
+private fun validateSymbols(call: ApplicationCall): Boolean {
+    var currencyValidator = true
+    val symbolsArray = call.parameters["symbols"]!!.split(",").toTypedArray()
 
-        symbolsArray.forEach {
-            val currencyValidator = CurrencyCodeValidator.validateCurrency(it)
-            if (!currencyValidator) {
-                call.respondHtml { body { h1 { +"Invalid symbol currency code" } } }
-                return false
-            }
-        }
+    symbolsArray.forEach {
+        currencyValidator = CurrencyCodeValidator.validateCurrency(it)
+        if (!currencyValidator) return currencyValidator
     }
-    return true
+    return currencyValidator
 }
 
-suspend fun validateBase(call: ApplicationCall): Boolean {
-    if (call.parameters["base"] != null) {
-        val currencyValidator = CurrencyCodeValidator.validateCurrency(call.parameters["base"])
-        if (!currencyValidator) {
-            call.respondHtml { body { h1 { + "Invalid base currency code " } } }
-            return false
-        }
-    }
-    return true
+private fun validateBase(call: ApplicationCall): Boolean {
+    return CurrencyCodeValidator.validateCurrency(call.parameters["base"])
 }

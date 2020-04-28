@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.domain.RangeResponse
 import com.example.domain.RatesResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.apache.Apache
@@ -49,7 +50,7 @@ suspend fun getHistoricalDate(date: String, base: String): RatesResponse {
  * @param symbols represents a currency
  * @return response from client as a string
  */
-suspend fun getHistoricalRange(startDate: String, endDate: String, symbols: String): RatesResponse {
+suspend fun getHistoricalRange(startDate: String, endDate: String, symbols: String): RangeResponse {
     // Create url and send a get request to client
     return client.get(API_URL + "history?start_at=" + startDate + "&end_at=" + endDate + symbols)
 }
